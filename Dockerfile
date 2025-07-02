@@ -1,31 +1,35 @@
-FROM php:8.1-fpm-alpine
+FROM php:8.1-cli-alpine
 
 # Install system dependencies
-RUN apk add --no-cache \
-    build-base \
-    libpng-dev \
-    libjpeg-dev \
-    freetype-dev \
-    libzip-dev \
+RUN apk update && apk add --no-cache \
+    postgresql-dev \
     zip \
     unzip \
-    postgresql-dev
+    curl
 
 # Install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg
-RUN docker-php-ext-install pdo pdo_pgsql gd zip
+RUN docker-php-ext-install pdo_pgsql
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Set working directory
-WORKDIR /var/www
+WORKDIR /app
+
+# Copy composer files first for better caching
+COPY composer.json composer.lock ./
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-scripts
 
 # Copy application files
 COPY . .
 
-# Install dependencies
-RUN composer install --optimize-autoloader --no-dev
+# Set permissions
+RUN chmod -R 755 storage bootstrap/cache
+
+# Generate optimized autoloader
+RUN composer dump-autoload --optimize
 
 # Expose port
 EXPOSE 8000
