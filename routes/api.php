@@ -1,0 +1,74 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\InventoryMovementController;
+
+// Add CORS headers for all API routes
+Route::middleware(['api'])->group(function () {
+    
+    // Add CORS preflight handling
+    Route::options('{any}', function() {
+        return response('', 200)
+            ->header('Access-Control-Allow-Origin', '*')
+            ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+            ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    })->where('any', '.*');
+
+    Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+    Route::get('/test', function () {
+        return response()->json([
+            'message' => 'API is working!',
+            'time' => now(),
+            'status' => 'success'
+        ])->header('Access-Control-Allow-Origin', '*');
+    });
+
+    Route::get('/health', function () {
+        return response()->json([
+            'status' => 'healthy',
+            'time' => now()
+        ])->header('Access-Control-Allow-Origin', '*');
+    });
+
+    Route::get('/inventory-movements', [InventoryMovementController::class, 'index']);
+    Route::post('/inventory-movements/da-to-da', [InventoryMovementController::class, 'storeDaToDA']);
+    Route::get('/movements/stats', [InventoryMovementController::class, 'stats']);
+
+    Route::prefix('returns')->group(function () {
+        Route::post('/da', [App\Http\Controllers\ReturnController::class, 'storeDAReturn']);
+        Route::post('/factory', [App\Http\Controllers\ReturnController::class, 'storeFactoryReturn']);
+        Route::get('/stats', [App\Http\Controllers\ReturnController::class, 'stats']);
+    });
+
+    Route::prefix('purchase-orders')->group(function () {
+        Route::get('/', [App\Http\Controllers\PurchaseOrderController::class, 'index']);
+        Route::post('/', [App\Http\Controllers\PurchaseOrderController::class, 'store']);
+    });
+
+    Route::prefix('inventory')->group(function () {
+        Route::get('/overview', [App\Http\Controllers\InventoryController::class, 'overview']);
+        Route::get('/items', [App\Http\Controllers\InventoryController::class, 'items']);
+        Route::get('/bin-stock/{binId}', [App\Http\Controllers\InventoryController::class, 'binStock']);
+        Route::post('/transfer', [App\Http\Controllers\InventoryController::class, 'transfer']);
+        Route::post('/create-package', [App\Http\Controllers\InventoryController::class, 'createPackage']);
+    });
+
+    Route::prefix('bins')->group(function () {
+        Route::get('/', [App\Http\Controllers\BinController::class, 'index']);
+        Route::get('/{id}', [App\Http\Controllers\BinController::class, 'show']);
+        Route::post('/{id}/assign-delivery-agent', [App\Http\Controllers\BinController::class, 'assignDeliveryAgent']);
+        Route::post('/{id}/deduct-inventory', [App\Http\Controllers\BinController::class, 'deductInventory']);
+        Route::post('/{id}/add-inventory', [App\Http\Controllers\BinController::class, 'addInventory']);
+        Route::get('/{id}/audit-logs', [App\Http\Controllers\BinController::class, 'getAuditLogs']);
+        Route::get('/{id}/validate-integrity', [App\Http\Controllers\BinController::class, 'validateBinIntegrity']);
+    });
+
+    Route::prefix('audit-logs')->group(function () {
+        Route::get('/', [App\Http\Controllers\AuditLogController::class, 'index']);
+        Route::get('/{id}', [App\Http\Controllers\AuditLogController::class, 'show']);
+    });
+});

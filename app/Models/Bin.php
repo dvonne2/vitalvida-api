@@ -1,0 +1,71 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Bin extends Model
+{
+    protected $fillable = [
+        'name',
+        'zoho_storage_id',
+        'zoho_warehouse_id',
+        'assigned_to_da',
+        'da_phone',
+        'location',
+        'status',
+        'type',
+        'max_capacity',
+        'metadata',
+    ];
+
+    protected $casts = [
+        'metadata' => 'array',
+        'max_capacity' => 'decimal:2',
+    ];
+
+    // Relationships
+    public function items(): HasMany
+    {
+        return $this->hasMany(BinItem::class);
+    }
+
+    public function deliveryAgent(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to_da', 'id');
+    }
+
+    // Helper methods
+    public function getCurrentCapacity()
+    {
+        return $this->items()->sum('quantity');
+    }
+
+    public function getAvailableCapacity()
+    {
+        return $this->max_capacity - $this->getCurrentCapacity();
+    }
+
+    public function canAccommodate($quantity)
+    {
+        return $this->getAvailableCapacity() >= $quantity;
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    public function scopeByType($query, $type)
+    {
+        return $query->where('type', $type);
+    }
+
+    public function scopeAssignedTo($query, $daId)
+    {
+        return $query->where('assigned_to_da', $daId);
+    }
+}
