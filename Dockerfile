@@ -1,30 +1,29 @@
-FROM php:8.1-cli-alpine
-
-# Install SQLite
-RUN apk add --no-cache sqlite sqlite-dev
-RUN docker-php-ext-install pdo_sqlite
-
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-WORKDIR /app
-
-# Copy composer files first for better caching
-COPY composer.json composer.lock ./
+FROM php:8.2-apache
 
 # Install dependencies
-RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
+RUN apt-get update && apt-get install -y \
+    sqlite3 libsqlite3-dev \
+    unzip git curl zip \
+    && docker-php-ext-install pdo pdo_sqlite
 
-# Copy application
+# Enable Apache rewrite
+RUN a2enmod rewrite
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy app files
 COPY . .
 
-# Create SQLite database
-RUN touch database/database.sqlite
-RUN chmod 666 database/database.sqlite
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
 # Set permissions
-RUN chmod -R 755 storage bootstrap/cache
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-EXPOSE 8000
+# Expose port 80 for Apache
+EXPOSE 80
 
-CMD php artisan serve --host=0.0.0.0 --port=8000
+CMD ["apache2-foreground"]
