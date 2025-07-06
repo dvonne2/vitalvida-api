@@ -12,11 +12,80 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     /**
-     * User login
+     * User registration (enhanced with new role system)
+     */
+    public function register(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'nullable|string|unique:users|regex:/^[0-9]{11}$/',
+            'password' => ['required', 'confirmed', Password::defaults()],
+            'role' => 'nullable|in:' . implode(',', array_keys(User::ROLES)),
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'password' => Hash::make($request->password),
+            'role' => $request->role ?? 'user',
+            'kyc_status' => 'pending',
+            'is_active' => true,
+        ]);
+
+        // Assign default role in new system
+        $user->assignRole($request->role ?? 'user');
+
+        // Create token
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        // Log the action
+        ActionLog::create([
+            'user_id' => $user->id,
+            'action' => 'user.register',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'metadata' => [
+                'role' => $request->role ?? 'user',
+                'registration_method' => 'api'
+            ]
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registration successful',
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'role' => $user->role,
+                    'kyc_status' => $user->kyc_status,
+                    'roles' => $user->roles->pluck('name'),
+                ],
+                'access_token' => $token,
+                'token_type' => 'Bearer'
+            ]
+        ], 201);
+    }
+
+    /**
+     * User login (enhanced with new role system)
      */
     public function login(Request $request)
     {
@@ -59,7 +128,7 @@ class AuthController extends Controller
         ]);
 
         // Create token
-        $token = $user->createToken($request->device_name ?? 'web')->plainTextToken;
+        $token = $user->createToken($request->device_name ?? 'auth_token')->plainTextToken;
 
         // Log the action
         ActionLog::create([
@@ -85,58 +154,24 @@ class AuthController extends Controller
                     'role' => $user->role,
                     'kyc_status' => $user->kyc_status,
                     'is_active' => $user->is_active,
+                    'roles' => $user->roles->pluck('name'),
+                    'permissions' => $user->getAccessibleNavigation(),
                 ],
-                'token' => $token,
+                'access_token' => $token,
                 'token_type' => 'Bearer'
             ]
         ]);
     }
 
     /**
-     * User registration
+     * Get current user info
      */
-    public function register(Request $request)
+    public function user(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'phone' => 'required|string|unique:users|regex:/^[0-9]{11}$/',
-            'password' => ['required', 'confirmed', Password::defaults()],
-            'role' => 'required|in:' . implode(',', array_keys(User::ROLES)),
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
-            'kyc_status' => 'pending',
-        ]);
-
-        // Log the action
-        ActionLog::create([
-            'user_id' => $user->id,
-            'action' => 'user.register',
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'metadata' => [
-                'role' => $request->role,
-                'registration_method' => 'api'
-            ]
-        ]);
+        $user = $request->user();
 
         return response()->json([
             'success' => true,
-            'message' => 'Registration successful. Please complete KYC verification.',
             'data' => [
                 'user' => [
                     'id' => $user->id,
@@ -145,14 +180,43 @@ class AuthController extends Controller
                     'phone' => $user->phone,
                     'role' => $user->role,
                     'kyc_status' => $user->kyc_status,
+                    'is_active' => $user->is_active,
+                    'email_verified_at' => $user->email_verified_at,
+                    'phone_verified_at' => $user->phone_verified_at,
+                    'last_login_at' => $user->last_login_at,
+                    'created_at' => $user->created_at,
+                    'roles' => $user->roles->pluck('name'),
+                    'permissions' => $user->getAccessibleNavigation(),
                 ]
             ]
-        ], 201);
+        ]);
     }
 
     /**
-     * Get user profile
+     * User logout
      */
+    public function logout(Request $request)
+    {
+        $user = $request->user();
+
+        // Log the action
+        ActionLog::create([
+            'user_id' => $user->id,
+            'action' => 'user.logout',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        // Revoke current token
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Logged out successfully'
+        ]);
+    }
+
+    // Keep all your existing methods (they're great!)
     public function profile(Request $request)
     {
         $user = $request->user();
@@ -172,14 +236,12 @@ class AuthController extends Controller
                     'phone_verified_at' => $user->phone_verified_at,
                     'last_login_at' => $user->last_login_at,
                     'created_at' => $user->created_at,
+                    'roles' => $user->roles->pluck('name'),
                 ]
             ]
         ]);
     }
 
-    /**
-     * Update user profile
-     */
     public function updateProfile(Request $request)
     {
         $user = $request->user();
@@ -199,7 +261,6 @@ class AuthController extends Controller
 
         $user->update($request->only(['name', 'phone']));
 
-        // Log the action
         ActionLog::create([
             'user_id' => $user->id,
             'action' => 'user.profile_update',
@@ -221,38 +282,12 @@ class AuthController extends Controller
                     'phone' => $user->phone,
                     'role' => $user->role,
                     'kyc_status' => $user->kyc_status,
+                    'roles' => $user->roles->pluck('name'),
                 ]
             ]
         ]);
     }
 
-    /**
-     * User logout
-     */
-    public function logout(Request $request)
-    {
-        $user = $request->user();
-
-        // Log the action
-        ActionLog::create([
-            'user_id' => $user->id,
-            'action' => 'user.logout',
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-        ]);
-
-        // Revoke all tokens for the user
-        $user->tokens()->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out successfully'
-        ]);
-    }
-
-    /**
-     * Change password
-     */
     public function changePassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -282,7 +317,6 @@ class AuthController extends Controller
             'password' => Hash::make($request->password)
         ]);
 
-        // Log the action
         ActionLog::create([
             'user_id' => $user->id,
             'action' => 'user.password_change',
@@ -296,9 +330,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Send OTP for phone verification
-     */
     public function verifyPhone(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -314,11 +345,8 @@ class AuthController extends Controller
         }
 
         $user = $request->user();
-
-        // Generate OTP
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Store OTP
         OtpLog::create([
             'otp_code' => $otp,
             'phone_number' => $request->phone,
@@ -330,23 +358,17 @@ class AuthController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
-        // TODO: Integrate with SMS service to send OTP
-        // For now, we'll return the OTP in response (remove in production)
-        
         return response()->json([
             'success' => true,
             'message' => 'OTP sent successfully',
             'data' => [
                 'phone' => $request->phone,
-                'expires_in' => 600, // 10 minutes
+                'expires_in' => 600,
                 'otp' => $otp // Remove this in production
             ]
         ]);
     }
 
-    /**
-     * Verify OTP
-     */
     public function verifyOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -377,13 +399,11 @@ class AuthController extends Controller
             ], 400);
         }
 
-        // Mark OTP as verified
         $otpLog->update([
             'status' => 'verified',
             'verified_at' => now(),
         ]);
 
-        // Update user phone verification
         $user = User::find($otpLog->user_id);
         $user->update([
             'phone_verified_at' => now(),
@@ -395,9 +415,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Forgot password
-     */
     public function forgotPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -413,15 +430,7 @@ class AuthController extends Controller
         }
 
         $user = User::where('email', $request->email)->first();
-
-        // Generate reset token
         $token = Str::random(60);
-        
-        // Store reset token (you might want to create a password_resets table)
-        // For now, we'll use a simple approach
-
-        // TODO: Send reset email
-        // For now, we'll return success
 
         return response()->json([
             'success' => true,
@@ -429,9 +438,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Reset password
-     */
     public function resetPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -448,12 +454,9 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // TODO: Verify token and reset password
-        // For now, we'll return success
-
         return response()->json([
             'success' => true,
             'message' => 'Password reset successfully'
         ]);
     }
-} 
+}

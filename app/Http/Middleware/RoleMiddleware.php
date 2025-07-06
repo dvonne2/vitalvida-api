@@ -29,16 +29,25 @@ class RoleMiddleware
         }
         
         // Superadmin can access everything
-        if ($user->role === 'superadmin') {
+        if ($user->role === 'superadmin' || $user->hasRole('admin')) {
             return $next($request);
         }
         
-        // Check if user has any of the required roles
-        if (!in_array($user->role, $roles)) {
+        // Check if user has any of the required roles (both old and new system)
+        $hasPermission = false;
+        foreach ($roles as $role) {
+            if ($user->role === $role || $user->hasRole($role)) {
+                $hasPermission = true;
+                break;
+            }
+        }
+        
+        if (!$hasPermission) {
             return response()->json([
                 'success' => false,
                 'message' => 'Insufficient permissions. Required roles: ' . implode(', ', $roles),
-                'user_role' => $user->role
+                'user_role' => $user->role,
+                'user_roles' => $user->roles->pluck('name')->toArray()
             ], 403);
         }
         

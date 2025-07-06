@@ -2,39 +2,53 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryMovement extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'id', 'product_id', 'from_bin_id', 'to_bin_id', 'from_warehouse_id', 
-        'to_warehouse_id', 'initiated_by', 'approved_by', 'quantity', 
-        'movement_type', 'status', 'reason', 'condition_notes', 
-        'approved_at', 'completed_at'
+        'product_id',
+        'user_id',
+        'from_bin_id',
+        'to_bin_id',
+        'movement_type',
+        'quantity',
+        'unit_cost',
+        'total_cost',
+        'reason',
+        'status',
+        'notes',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'approval_notes',
+        'approval_threshold'
     ];
 
     protected $casts = [
+        'quantity' => 'decimal:2',
+        'unit_cost' => 'decimal:2',
+        'total_cost' => 'decimal:2',
         'approved_at' => 'datetime',
-        'completed_at' => 'datetime',
-        'quantity' => 'integer'
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime'
     ];
 
-    public $incrementing = false;
-    protected $keyType = 'string';
+    public function isApproved(): bool
+    {
+        return $this->approval_status === 'approved';
+    }
 
-    // Relationships
-    public function product(): BelongsTo { return $this->belongsTo(Product::class); }
-    public function initiatedBy(): BelongsTo { return $this->belongsTo(User::class, 'initiated_by'); }
-    public function approvedBy(): BelongsTo { return $this->belongsTo(User::class, 'approved_by'); }
-    public function fromBin(): BelongsTo { return $this->belongsTo(BinStock::class, 'from_bin_id'); }
-    public function toBin(): BelongsTo { return $this->belongsTo(BinStock::class, 'to_bin_id'); }
+    public function isPending(): bool
+    {
+        return $this->approval_status === 'pending';
+    }
 
-    // Scopes
-    public function scopePending($query) { return $query->where('status', 'pending'); }
-    public function scopeCompleted($query) { return $query->where('status', 'completed'); }
-
-    // Business Logic
-    public function canBeApproved(): bool { return $this->status === 'pending'; }
-    public function canBeCompleted(): bool { return $this->status === 'approved'; }
+    public function isRejected(): bool
+    {
+        return $this->approval_status === 'rejected';
+    }
 }

@@ -1,25 +1,8 @@
 <?php
 
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Third Party Services
-    |--------------------------------------------------------------------------
-    |
-    | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
-    |
-    */
-
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
-    ],
-
-    'resend' => [
-        'key' => env('RESEND_KEY'),
     ],
 
     'ses' => [
@@ -28,19 +11,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'slack' => [
-        'notifications' => [
-            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
-            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
-        ],
-    ], 
-
     'zoho' => [
-        'access_token'     => env('ZOHO_ACCESS_TOKEN'),
-        'organization_id'  => env('ZOHO_ORGANIZATION_ID'),
-        'refresh_token'    => env('ZOHO_REFRESH_TOKEN'),
-        'client_id'        => env('ZOHO_CLIENT_ID'),
-        'client_secret'    => env('ZOHO_CLIENT_SECRET'),
-  ],
+        'client_id' => env('ZOHO_CLIENT_ID'),
+        'client_secret' => env('ZOHO_CLIENT_SECRET'),
+        'refresh_token' => env('ZOHO_REFRESH_TOKEN'),
+        'organization_id' => env('ZOHO_ORGANIZATION_ID'),
+        'region' => env('ZOHO_REGION', 'com'),
+        'fhg_location_id' => env('ZOHO_FHG_LOCATION_ID'),
+        'fhg_location_name' => env('ZOHO_FHG_LOCATION_NAME'),
+    ],
 ];
-

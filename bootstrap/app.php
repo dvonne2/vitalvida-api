@@ -14,10 +14,15 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [
             \App\Http\Middleware\CorsMiddleware::class,
+            \App\Http\Middleware\SecurityHeaders::class,
+            \App\Http\Middleware\AuditLog::class,
         ]);
         
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'auto.refresh' => \App\Http\Middleware\AutoRefreshToken::class,
+            'security.headers' => \App\Http\Middleware\SecurityHeaders::class,
+            'audit.log' => \App\Http\Middleware\AuditLog::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

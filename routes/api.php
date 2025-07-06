@@ -2,73 +2,146 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\InventoryMovementController;
 
-// Add CORS headers for all API routes
-Route::middleware(['api'])->group(function () {
+// Test route to verify API is working
+Route::get('/test', function () {
+    return response()->json([
+        'message' => 'VitalVida API is working!', 
+        'timestamp' => now(),
+        'status' => 'success'
+    ]);
+});
+
+// Public authentication routes with rate limiting
+Route::middleware(['throttle:5,1'])->prefix('auth')->group(function () {
+    Route::post('/register', [App\Http\Controllers\AuthController::class, 'register']);
+    Route::post('/login', [App\Http\Controllers\AuthController::class, 'login']);
+    Route::post('/forgot-password', [App\Http\Controllers\AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password', [App\Http\Controllers\AuthController::class, 'resetPassword']);
+    Route::post('/verify-email', [App\Http\Controllers\AuthController::class, 'verifyEmail']);
+    Route::post('/resend-verification', [App\Http\Controllers\AuthController::class, 'resendVerification']);
+});
+
+// Protected routes with comprehensive security middleware
+Route::middleware([
+    'auth:sanctum', 
+    \App\Http\Middleware\AutoRefreshToken::class,
+    \App\Http\Middleware\SecurityHeaders::class
+])->group(function () {
     
-    // Add CORS preflight handling
-    Route::options('{any}', function() {
-        return response('', 200)
-            ->header('Access-Control-Allow-Origin', '*')
-            ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-            ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    })->where('any', '.*');
-
-    Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-        return $request->user();
+    // Auth routes that require authentication
+    Route::prefix('auth')->group(function () {
+        Route::post('/logout', [App\Http\Controllers\AuthController::class, 'logout']);
+        Route::get('/user', [App\Http\Controllers\AuthController::class, 'user']);
+        Route::post('/refresh', [App\Http\Controllers\AuthController::class, 'refresh']);
+        Route::post('/change-password', [App\Http\Controllers\AuthController::class, 'changePassword']);
+        Route::post('/update-profile', [App\Http\Controllers\AuthController::class, 'updateProfile']);
     });
 
-    Route::get('/test', function () {
+    // Dashboard route
+    Route::get('/dashboard', function () {
         return response()->json([
-            'message' => 'API is working!',
-            'time' => now(),
-            'status' => 'success'
-        ])->header('Access-Control-Allow-Origin', '*');
+            'message' => 'Welcome to your dashboard!',
+            'user' => auth()->user(),
+            'timestamp' => now()
+        ]);
     });
 
-    Route::get('/health', function () {
-        return response()->json([
-            'status' => 'healthy',
-            'time' => now()
-        ])->header('Access-Control-Allow-Origin', '*');
+    // Security Dashboard Routes (Admin/Superadmin only)
+    Route::middleware(['role:admin,superadmin'])->prefix('security')->group(function () {
+        Route::get('/dashboard', [App\Http\Controllers\SecurityController::class, 'dashboard']);
+        Route::get('/logs', [App\Http\Controllers\SecurityController::class, 'logs']);
+        Route::get('/recommendations', [App\Http\Controllers\SecurityController::class, 'recommendations']);
+        Route::post('/clean-logs', [App\Http\Controllers\SecurityController::class, 'cleanLogs']);
+        Route::get('/user/{userId}/profile', [App\Http\Controllers\SecurityController::class, 'userProfile']);
+        Route::get('/ip/{ipAddress}/profile', [App\Http\Controllers\SecurityController::class, 'ipProfile']);
     });
 
-    Route::get('/inventory-movements', [InventoryMovementController::class, 'index']);
-    Route::post('/inventory-movements/da-to-da', [InventoryMovementController::class, 'storeDaToDA']);
-    Route::get('/movements/stats', [InventoryMovementController::class, 'stats']);
-
-    Route::prefix('returns')->group(function () {
-        Route::post('/da', [App\Http\Controllers\ReturnController::class, 'storeDAReturn']);
-        Route::post('/factory', [App\Http\Controllers\ReturnController::class, 'storeFactoryReturn']);
-        Route::get('/stats', [App\Http\Controllers\ReturnController::class, 'stats']);
+    // Role-based protected routes
+    Route::middleware(['role:admin,superadmin'])->prefix('admin')->group(function () {
+        Route::get('/users', function () {
+            return response()->json(['message' => 'Admin users endpoint']);
+        });
+        Route::get('/system-stats', function () {
+            return response()->json(['message' => 'System statistics']);
+        });
     });
 
-    Route::prefix('purchase-orders')->group(function () {
-        Route::get('/', [App\Http\Controllers\PurchaseOrderController::class, 'index']);
-        Route::post('/', [App\Http\Controllers\PurchaseOrderController::class, 'store']);
+    Route::middleware(['role:inventory,admin,superadmin'])->prefix('inventory')->group(function () {
+        Route::get('/overview', function () {
+            return response()->json(['message' => 'Inventory overview']);
+        });
+        Route::get('/items', function () {
+            return response()->json(['message' => 'Inventory items']);
+        });
     });
 
-    Route::prefix('inventory')->group(function () {
-        Route::get('/overview', [App\Http\Controllers\InventoryController::class, 'overview']);
-        Route::get('/items', [App\Http\Controllers\InventoryController::class, 'items']);
-        Route::get('/bin-stock/{binId}', [App\Http\Controllers\InventoryController::class, 'binStock']);
-        Route::post('/transfer', [App\Http\Controllers\InventoryController::class, 'transfer']);
-        Route::post('/create-package', [App\Http\Controllers\InventoryController::class, 'createPackage']);
+    Route::middleware(['role:DA,admin,superadmin'])->prefix('delivery')->group(function () {
+        Route::get('/assignments', function () {
+            return response()->json(['message' => 'Delivery assignments']);
+        });
+        Route::post('/update-status', function () {
+            return response()->json(['message' => 'Status updated']);
+        });
     });
 
-    Route::prefix('bins')->group(function () {
-        Route::get('/', [App\Http\Controllers\BinController::class, 'index']);
-        Route::get('/{id}', [App\Http\Controllers\BinController::class, 'show']);
-        Route::post('/{id}/assign-delivery-agent', [App\Http\Controllers\BinController::class, 'assignDeliveryAgent']);
-        Route::post('/{id}/deduct-inventory', [App\Http\Controllers\BinController::class, 'deductInventory']);
-        Route::post('/{id}/add-inventory', [App\Http\Controllers\BinController::class, 'addInventory']);
-        Route::get('/{id}/audit-logs', [App\Http\Controllers\BinController::class, 'getAuditLogs']);
-        Route::get('/{id}/validate-integrity', [App\Http\Controllers\BinController::class, 'validateBinIntegrity']);
-    });
+    // Additional protected routes here...
+});
 
-    Route::prefix('audit-logs')->group(function () {
-        Route::get('/', [App\Http\Controllers\AuditLogController::class, 'index']);
-        Route::get('/{id}', [App\Http\Controllers\AuditLogController::class, 'show']);
-    });
+// Public data routes (all authenticated users)
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/products', [App\Http\Controllers\ProductController::class, 'index']);
+    Route::get('/warehouses', [App\Http\Controllers\WarehouseController::class, 'index']);
+});
+
+// Inventory Movement routes (restricted to inventory role)
+Route::middleware(['auth:sanctum', 'role:inventory'])->group(function () {
+    Route::post('/inventory-movements', [App\Http\Controllers\InventoryMovementController::class, 'store']);
+    Route::get('/inventory-movements', [App\Http\Controllers\InventoryMovementController::class, 'index']);
+    Route::get('/inventory-movements/{movement}', [App\Http\Controllers\InventoryMovementController::class, 'show']);
+});
+
+// Inventory Movement API Routes
+Route::prefix('v1')->group(function () {
+    Route::apiResource('inventory-movements', App\Http\Controllers\InventoryMovementController::class);
+    Route::post('inventory-movements/{id}/approve', [App\Http\Controllers\InventoryMovementController::class, 'approve']);
+    Route::post('inventory-movements/{id}/reject', [App\Http\Controllers\InventoryMovementController::class, 'reject']);
+    Route::get('inventory-movements/{id}/approval-logs', [App\Http\Controllers\InventoryMovementController::class, 'approvalLogs']);
+    Route::get('inventory-movements/pending-approval', [App\Http\Controllers\InventoryMovementController::class, 'getPendingApproval']);
+});
+
+// Inventory Summary Routes
+Route::prefix('v1/inventory-summary')->group(function () {
+    Route::get('/', [App\Http\Controllers\InventorySummaryController::class, 'index']);
+    Route::get('/product-totals', [App\Http\Controllers\InventorySummaryController::class, 'productTotals']);
+    Route::get('/product/{productId}', [App\Http\Controllers\InventorySummaryController::class, 'productSummary']);
+    Route::get('/low-stock-alerts', [App\Http\Controllers\InventorySummaryController::class, 'lowStockAlerts']);
+    Route::get('/trends', [App\Http\Controllers\InventorySummaryController::class, 'movementTrends']);
+});
+
+// Inventory Transfer endpoint for Lovable frontend
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/inventory-transfers', [App\Http\Controllers\Api\InventoryTransferController::class, 'store']);
+    Route::get('/bins/by-state/{state}', [App\Http\Controllers\Api\InventoryTransferController::class, 'getBinsByState']);
+});
+
+// Inventory Transfer endpoint for Lovable frontend
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/inventory-transfers', [App\Http\Controllers\Api\InventoryTransferController::class, 'store']);
+    Route::get('/bins/by-state/{state}', [App\Http\Controllers\Api\InventoryTransferController::class, 'getBinsByState']);
+});
+
+// Inventory Transfer endpoints (Zoho products only)
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Get products from Zoho for dropdowns
+    Route::get('/products', [App\Http\Controllers\Api\InventoryTransferController::class, 'getProducts']);
+    
+    // Get bins by state for dropdowns
+    Route::get('/bins/by-state/{state}', [App\Http\Controllers\Api\InventoryTransferController::class, 'getBinsByState']);
+    
+    // Create inventory transfer (products must be from Zoho)
+    Route::post('/inventory-transfers', [App\Http\Controllers\Api\InventoryTransferController::class, 'store']);
+    
+    // Create new bin (ONLY allowed creation from portal)
+    Route::post('/bins', [App\Http\Controllers\Api\InventoryTransferController::class, 'createBin']);
 });

@@ -12,9 +12,13 @@ class Bin extends Model
         'name',
         'zoho_storage_id',
         'zoho_warehouse_id',
+        'zoho_location_id',
+        'zoho_zone_id',
+        'zoho_bin_id',
         'assigned_to_da',
         'da_phone',
         'location',
+        'state',
         'status',
         'type',
         'max_capacity',
@@ -67,5 +71,33 @@ class Bin extends Model
     public function scopeAssignedTo($query, $daId)
     {
         return $query->where('assigned_to_da', $daId);
+    }
+
+    public function scopeByState($query, $state)
+    {
+        return $query->where('state', $state);
+    }
+
+    public function scopeByZohoLocation($query, $locationId)
+    {
+        return $query->where('zoho_location_id', $locationId);
+    }
+
+    public function scopeByZohoZone($query, $zoneId)
+    {
+        return $query->where('zoho_zone_id', $zoneId);
+    }
+
+    public static function getNigerianStates(): array
+    {
+        return [
+            'FCT Abuja', 'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra',
+            'Bauchi', 'Bayelsa', 'Benue', 'Borno', 'Cross River',
+            'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Gombe',
+            'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi',
+            'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun',
+            'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto',
+            'Taraba', 'Yobe', 'Zamfara'
+        ];
     }
 }
