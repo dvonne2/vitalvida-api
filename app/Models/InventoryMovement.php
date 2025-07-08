@@ -2,53 +2,62 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryMovement extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'product_id',
-        'user_id',
-        'from_bin_id',
-        'to_bin_id',
-        'movement_type',
-        'quantity',
-        'unit_cost',
-        'total_cost',
-        'reason',
-        'status',
-        'notes',
-        'approval_status',
-        'approved_by',
-        'approved_at',
-        'approval_notes',
-        'approval_threshold'
+        'movement_id', 'order_number', 'item_id', 'item_name', 'item_sku',
+        'bin_id', 'bin_name', 'warehouse_id', 'zone', 'aisle', 'rack', 'shelf',
+        'movement_type', 'quantity_before', 'quantity_changed', 'quantity_after',
+        'source_type', 'source_reference', 'source_details',
+        'user_id', 'performed_by', 'ip_address', 'user_agent',
+        'zoho_transaction_id', 'zoho_response', 'synced_to_zoho', 'synced_at',
+        'status', 'notes', 'reason', 'movement_at'
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
-        'unit_cost' => 'decimal:2',
-        'total_cost' => 'decimal:2',
-        'approved_at' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'source_details' => 'array',
+        'zoho_response' => 'array',
+        'synced_to_zoho' => 'boolean',
+        'synced_at' => 'datetime',
+        'movement_at' => 'datetime'
     ];
 
-    public function isApproved(): bool
+    public function user(): BelongsTo
     {
-        return $this->approval_status === 'approved';
+        return $this->belongsTo(User::class);
     }
 
-    public function isPending(): bool
+    public function order(): BelongsTo
     {
-        return $this->approval_status === 'pending';
+        return $this->belongsTo(Order::class, 'order_number', 'order_number');
     }
 
-    public function isRejected(): bool
+    public function binLocation(): BelongsTo
     {
-        return $this->approval_status === 'rejected';
+        return $this->belongsTo(BinLocation::class, 'bin_id', 'bin_id');
+    }
+
+    // Scopes for filtering
+    public function scopeInbound($query)
+    {
+        return $query->where('movement_type', 'inbound');
+    }
+
+    public function scopeOutbound($query)
+    {
+        return $query->where('movement_type', 'outbound');
+    }
+
+    public function scopeBySource($query, $sourceType)
+    {
+        return $query->where('source_type', $sourceType);
+    }
+
+    public function scopeByDateRange($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('movement_at', [$startDate, $endDate]);
     }
 }

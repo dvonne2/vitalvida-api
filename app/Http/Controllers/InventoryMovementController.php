@@ -2,161 +2,117 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\InventoryMovementService;
 use App\Models\InventoryMovement;
-use App\Models\ApprovalLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class InventoryMovementController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    private $movementService;
+
+    public function __construct(InventoryMovementService $movementService)
     {
-        $query = InventoryMovement::query();
-        
-        if ($request->has('status')) {
-            $query->where('approval_status', $request->status);
-        }
-        
-        $movements = $query->orderBy('created_at', 'desc')->paginate(15);
-        
+        $this->movementService = $movementService;
+    }
+
+    /**
+     * Get BIN movement history
+     */
+    public function getBinMovements(string $binId, Request $request): JsonResponse
+    {
+        $filters = [
+            'movement_type' => $request->get('movement_type'),
+            'source_type' => $request->get('source_type'),
+            'start_date' => $request->get('start_date'),
+            'end_date' => $request->get('end_date'),
+            'item_id' => $request->get('item_id'),
+            'per_page' => $request->get('per_page', 20)
+        ];
+
+        $movements = $this->movementService->getBinMovementHistory($binId, $filters);
+
         return response()->json([
             'success' => true,
-            'data' => $movements,
-            'message' => 'Inventory movements retrieved successfully'
+            'bin_id' => $binId,
+            'movements' => $movements
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    /**
+     * Get item movement history across all BINs
+     */
+    public function getItemMovements(string $itemId, Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'product_id' => 'required|integer',
-            'movement_type' => 'required|string',
-            'quantity' => 'required|numeric|min:0.01',
-            'unit_cost' => 'nullable|numeric|min:0',
-            'total_cost' => 'nullable|numeric|min:0',
-            'reason' => 'nullable|string',
-            'notes' => 'nullable|string',
-        ]);
+        $filters = [
+            'movement_type' => $request->get('movement_type'),
+            'bin_id' => $request->get('bin_id'),
+            'start_date' => $request->get('start_date'),
+            'end_date' => $request->get('end_date'),
+            'per_page' => $request->get('per_page', 20)
+        ];
 
-        // Calculate total cost if not provided
-        if (!isset($validated['total_cost']) && isset($validated['unit_cost'])) {
-            $validated['total_cost'] = $validated['quantity'] * $validated['unit_cost'];
-        }
+        $movements = $this->movementService->getItemMovementHistory($itemId, $filters);
 
-        // Set approval status based on threshold
-        $threshold = 1000.00;
-        $requiresApproval = ($validated['total_cost'] ?? 0) > $threshold;
-        
-        $validated['approval_status'] = $requiresApproval ? 'pending' : 'approved';
-        $validated['user_id'] = 1;
-        $validated['status'] = 'pending';
-        
-        if (!$requiresApproval) {
-            $validated['approved_by'] = 1;
-            $validated['approved_at'] = now();
-        }
-
-        $movement = InventoryMovement::create($validated);
-        
         return response()->json([
             'success' => true,
-            'data' => $movement,
-            'message' => $requiresApproval ? 'Movement created and pending approval' : 'Movement created and auto-approved'
-        ], 201);
-    }
-
-    public function show($id): JsonResponse
-    {
-        $movement = InventoryMovement::findOrFail($id);
-        
-        return response()->json([
-            'success' => true,
-            'data' => $movement,
-            'message' => 'Movement retrieved successfully'
+            'item_id' => $itemId,
+            'movements' => $movements
         ]);
     }
 
-    public function approve(Request $request, $id): JsonResponse
+    /**
+     * Get movement summary and analytics
+     */
+    public function getMovementSummary(Request $request): JsonResponse
     {
-        $movement = InventoryMovement::findOrFail($id);
-        
-        if ($movement->approval_status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Movement is not pending approval'
-            ], 400);
-        }
-        
-        $validated = $request->validate([
-            'notes' => 'nullable|string|max:1000'
-        ]);
-        
-        $movement->update([
-            'approval_status' => 'approved',
-            'approved_by' => 1,
-            'approved_at' => now(),
-            'approval_notes' => $validated['notes'] ?? null
-        ]);
-        
+        $filters = [
+            'start_date' => $request->get('start_date', now()->subDays(30)),
+            'end_date' => $request->get('end_date', now())
+        ];
+
+        $summary = $this->movementService->getMovementSummary($filters);
+
         return response()->json([
             'success' => true,
-            'data' => $movement,
-            'message' => 'Movement approved successfully'
+            'summary' => $summary,
+            'filters' => $filters
         ]);
     }
 
-    public function reject(Request $request, $id): JsonResponse
+    /**
+     * Get order movement details
+     */
+    public function getOrderMovements(string $orderNumber): JsonResponse
     {
-        $movement = InventoryMovement::findOrFail($id);
-        
-        if ($movement->approval_status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Movement is not pending approval'
-            ], 400);
-        }
-        
-        $validated = $request->validate([
-            'notes' => 'required|string|max:1000'
-        ]);
-        
-        $movement->update([
-            'approval_status' => 'rejected',
-            'approved_by' => 1,
-            'approved_at' => now(),
-            'approval_notes' => $validated['notes']
-        ]);
-        
-        return response()->json([
-            'success' => true,
-            'data' => $movement,
-            'message' => 'Movement rejected successfully'
-        ]);
-    }
-
-    public function getPendingApproval(): JsonResponse
-    {
-        $movements = InventoryMovement::where('approval_status', 'pending')
-            ->orderBy('created_at', 'desc')
+        $movements = InventoryMovement::where('order_number', $orderNumber)
+            ->with(['user', 'binLocation'])
+            ->orderBy('movement_at', 'desc')
             ->get();
-        
+
         return response()->json([
             'success' => true,
-            'data' => $movements,
-            'message' => 'Pending movements retrieved successfully'
+            'order_number' => $orderNumber,
+            'movements' => $movements
         ]);
     }
 
-    public function approvalLogs($id): JsonResponse
+    /**
+     * Get recent movements across the system
+     */
+    public function getRecentMovements(Request $request): JsonResponse
     {
-        $movement = InventoryMovement::findOrFail($id);
+        $limit = $request->get('limit', 50);
         
+        $movements = InventoryMovement::with(['user', 'binLocation'])
+            ->orderBy('movement_at', 'desc')
+            ->limit($limit)
+            ->get();
+
         return response()->json([
             'success' => true,
-            'data' => [],
-            'message' => 'Approval logs retrieved successfully'
+            'movements' => $movements
         ]);
     }
 }

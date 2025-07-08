@@ -2,65 +2,83 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DeductInventoryRequest;
+use App\Services\InventoryService;
+use App\Services\PaymentVerificationService;
+use App\Services\OtpVerificationService;
+use App\Models\InventoryAudit;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Exception;
 
 class InventoryController extends Controller
 {
-    public function items()
+    private $inventoryService;
+    private $paymentService;
+    private $otpService;
+
+    public function __construct(
+        InventoryService $inventoryService,
+        PaymentVerificationService $paymentService,
+        OtpVerificationService $otpService
+    ) {
+        $this->inventoryService = $inventoryService;
+        $this->paymentService = $paymentService;
+        $this->otpService = $otpService;
+    }
+
+    public function deductInventory(DeductInventoryRequest $request): JsonResponse
     {
+        try {
+            $result = $this->inventoryService->deductInventory($request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Inventory deducted successfully after payment and OTP verification',
+                'data' => $result
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function checkDeductionEligibility(Request $request): JsonResponse
+    {
+        $orderNumber = $request->get('order_number');
+        
+        if (!$orderNumber) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order number is required'
+            ], 400);
+        }
+
+        $paymentStatus = $this->paymentService->verifyPaymentStatus($orderNumber);
+        $otpRequired = $this->otpService->isOtpRequired($orderNumber);
+        
         return response()->json([
-            "success" => true,
-            "data" => [
-                ["id" => 1, "name" => "Sample Product A", "sku" => "PROD001", "stock" => 50],
-                ["id" => 2, "name" => "Sample Product B", "sku" => "PROD002", "stock" => 25],
-                ["id" => 3, "name" => "Sample Product C", "sku" => "PROD003", "stock" => 100]
-            ],
-            "message" => "Products retrieved successfully"
+            'success' => true,
+            'order_number' => $orderNumber,
+            'payment_verified' => $paymentStatus['verified'],
+            'payment_message' => $paymentStatus['message'],
+            'otp_required' => $otpRequired,
+            'ready_for_deduction' => $paymentStatus['verified'] && !$otpRequired
         ]);
     }
 
-    public function overview()
+    public function getAuditTrail(string $orderNumber): JsonResponse
     {
-        return response()->json([
-            "success" => true,
-            "data" => [
-                "total_products" => 150,
-                "low_stock_count" => 5,
-                "out_of_stock_count" => 2,
-                "total_value" => 45000
-            ]
-        ]);
-    }
+        $audits = InventoryAudit::where('order_number', $orderNumber)
+            ->with('user')
+            ->orderBy('deducted_at', 'desc')
+            ->get();
 
-    public function binStock($binId)
-    {
         return response()->json([
-            "success" => true,
-            "data" => [
-                "bin_id" => $binId,
-                "products" => [
-                    ["product_id" => 1, "quantity" => 25],
-                    ["product_id" => 2, "quantity" => 15]
-                ]
-            ]
-        ]);
-    }
-
-    public function transfer(Request $request)
-    {
-        return response()->json([
-            "success" => true,
-            "message" => "Transfer completed successfully"
-        ]);
-    }
-
-    public function createPackage(Request $request)
-    {
-        return response()->json([
-            "success" => true,
-            "message" => "Package created successfully"
+            'success' => true,
+            'audits' => $audits
         ]);
     }
 }
