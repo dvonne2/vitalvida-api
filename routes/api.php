@@ -2,61 +2,35 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// SECURE INVENTORY ROUTES - PAYMENT + OTP REQUIRED
-Route::middleware(['auth:sanctum', 'inventory.security'])->group(function () {
-    // Inventory deduction - NOW REQUIRES PAYMENT + OTP
-    Route::post('/inventory/deduct', [InventoryController::class, 'deductInventory'])
-        ->middleware('throttle:10,1');
+Route::get('/dashboard/summary', [DashboardController::class, 'getSummary']);
 
-    // Check if order is ready for deduction
-    Route::get('/inventory/check-eligibility', [InventoryController::class, 'checkDeductionEligibility'])
-        ->middleware('throttle:30,1');
-
-    // Audit trail
-    Route::get('/inventory/audit/{orderNumber}', [InventoryController::class, 'getAuditTrail'])
-        ->middleware('throttle:20,1');
+Route::prefix('inventory')->group(function () {
+    Route::get('/dashboard', [InventoryController::class, 'getDashboard']);
+    Route::get('/insights', [InventoryController::class, 'getInsights']);
 });
-
-// DELIVERY CONFIRMATION - TRIGGERS AUTOMATIC INVENTORY DEDUCTION
-use App\Http\Controllers\DeliveryController;
-
-Route::middleware(['auth:sanctum'])->group(function () {
-    // Confirm delivery - AUTOMATICALLY triggers inventory deduction
-    Route::post('/delivery/confirm', [DeliveryController::class, 'confirmDelivery'])
-        ->middleware('throttle:5,1');
-
-    // Check delivery status
-    Route::get('/delivery/status/{orderNumber}', [DeliveryController::class, 'getDeliveryStatus'])
-        ->middleware('throttle:20,1');
-});
-
-// INVENTORY MOVEMENT REPORTING - READ-ONLY ACCESS
-use App\Http\Controllers\InventoryMovementController;
-
-Route::middleware(['auth:sanctum'])->group(function () {
-    // BIN movement history
-    Route::get('/movements/bin/{binId}', [InventoryMovementController::class, 'getBinMovements'])
-        ->middleware('throttle:60,1');
-
-    // Item movement history
-    Route::get('/movements/item/{itemId}', [InventoryMovementController::class, 'getItemMovements'])
-        ->middleware('throttle:60,1');
-
-    // Order movement details
-    Route::get('/movements/order/{orderNumber}', [InventoryMovementController::class, 'getOrderMovements'])
-        ->middleware('throttle:60,1');
-
-    // Movement summary and analytics
-    Route::get('/movements/summary', [InventoryMovementController::class, 'getMovementSummary'])
-        ->middleware('throttle:30,1');
-
-    // Recent movements
-    Route::get('/movements/recent', [InventoryMovementController::class, 'getRecentMovements'])
-        ->middleware('throttle:60,1');
-});
+Route::get("/strikes/log", [App\Http\Controllers\StrikeController::class, "getLog"]);
+Route::get("/performance/summary", [App\Http\Controllers\PerformanceController::class, "getSummary"]);
+Route::post("/inventory/photo-verification/entry", [App\Http\Controllers\PhotoVerificationController::class, "create"]);
+Route::get("/inventory/photo-verification/comparison", [App\Http\Controllers\PhotoVerificationController::class, "getComparison"]);
+Route::get("/inventory/photo-verification/flags", [App\Http\Controllers\PhotoVerificationController::class, "getFlags"]);
+Route::post("/audit/resolve", [App\Http\Controllers\AuditController::class, "resolveDiscrepancy"]);
+Route::get("/audit/fc-review", [App\Http\Controllers\AuditController::class, "getPendingReview"]);
+Route::post("/audit/fc-review", [App\Http\Controllers\AuditController::class, "processReview"]);
+Route::get("/analytics/aging-report", [App\Http\Controllers\AnalyticsController::class, "getAgingReport"]);
+Route::get("/inventory/adjustments/log", [App\Http\Controllers\InventoryController::class, "getAdjustmentsLog"]);
+Route::get("/delivery-agents/performance", [App\Http\Controllers\DeliveryAgentController::class, "getPerformanceReport"]);
+Route::get("/inventorymanager/performance/summary", [App\Http\Controllers\PerformanceController::class, "getInventoryManagerSummary"]);
+Route::get("/delivery-agents/payment-match", [App\Http\Controllers\DeliveryAgentController::class, "getPaymentMatchReport"]);
+Route::get("/returns/misreporting", [App\Http\Controllers\ReturnsController::class, "getMisreportedReturns"]);
+Route::get("/strikes/da/{id}", [App\Http\Controllers\StrikeController::class, "getStrikeLog"]);
+Route::get("/insights/bin-suggestions", [App\Http\Controllers\InsightController::class, "getBinSuggestions"]);
+Route::get("/audit/logs", [App\Http\Controllers\AuditController::class, "getLogs"]);
+Route::get("/knowledge/inventory", [App\Http\Controllers\KnowledgeController::class, "getInventoryGuide"]);
+Route::get("/delivery-agents/profile/{id}", [App\Http\Controllers\DeliveryAgentController::class, "getProfile"]);

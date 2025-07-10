@@ -2,83 +2,100 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\DeductInventoryRequest;
-use App\Services\InventoryService;
-use App\Services\PaymentVerificationService;
-use App\Services\OtpVerificationService;
-use App\Models\InventoryAudit;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InventoryController extends Controller
 {
-    private $inventoryService;
-    private $paymentService;
-    private $otpService;
-
-    public function __construct(
-        InventoryService $inventoryService,
-        PaymentVerificationService $paymentService,
-        OtpVerificationService $otpService
-    ) {
-        $this->inventoryService = $inventoryService;
-        $this->paymentService = $paymentService;
-        $this->otpService = $otpService;
-    }
-
-    public function deductInventory(DeductInventoryRequest $request): JsonResponse
+    public function getInsights()
     {
-        try {
-            $result = $this->inventoryService->deductInventory($request->validated());
+        $insights = [
+            'top_stocked_products' => [
+                ['id' => 1, 'name' => 'Bandages', 'stock_count' => 850],
+                ['id' => 2, 'name' => 'Aspirin', 'stock_count' => 750],
+                ['id' => 3, 'name' => 'Thermometers', 'stock_count' => 680],
+                ['id' => 4, 'name' => 'Face Masks', 'stock_count' => 620],
+                ['id' => 5, 'name' => 'Hand Sanitizer', 'stock_count' => 580]
+            ],
+            'lowest_stock_products' => [
+                ['id' => 15, 'name' => 'Blood Pressure Monitor', 'stock_count' => 2],
+                ['id' => 22, 'name' => 'Wheelchair', 'stock_count' => 3],
+                ['id' => 8, 'name' => 'Nebulizer', 'stock_count' => 5],
+                ['id' => 12, 'name' => 'Oxygen Tank', 'stock_count' => 8],
+                ['id' => 19, 'name' => 'Crutches', 'stock_count' => 12]
+            ],
+            'total_products' => 156,
+            'stock_movements_this_week' => 47,
+            'potential_hoarding_bins' => [
+                ['id' => 'BIN-A12', 'location' => 'Warehouse A - Row 1', 'days_without_outflow' => 9],
+                ['id' => 'BIN-C05', 'location' => 'Warehouse C - Row 2', 'days_without_outflow' => 12],
+                ['id' => 'BIN-B08', 'location' => 'Warehouse B - Row 3', 'days_without_outflow' => 7]
+            ],
+            'generated_at' => now()->toISOString()
+        ];
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Inventory deducted successfully after payment and OTP verification',
-                'data' => $result
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
-        }
-    }
-
-    public function checkDeductionEligibility(Request $request): JsonResponse
-    {
-        $orderNumber = $request->get('order_number');
-        
-        if (!$orderNumber) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Order number is required'
-            ], 400);
-        }
-
-        $paymentStatus = $this->paymentService->verifyPaymentStatus($orderNumber);
-        $otpRequired = $this->otpService->isOtpRequired($orderNumber);
-        
         return response()->json([
             'success' => true,
-            'order_number' => $orderNumber,
-            'payment_verified' => $paymentStatus['verified'],
-            'payment_message' => $paymentStatus['message'],
-            'otp_required' => $otpRequired,
-            'ready_for_deduction' => $paymentStatus['verified'] && !$otpRequired
+            'data' => $insights
         ]);
     }
 
-    public function getAuditTrail(string $orderNumber): JsonResponse
+    public function getAdjustmentsLog()
     {
-        $audits = InventoryAudit::where('order_number', $orderNumber)
-            ->with('user')
-            ->orderBy('deducted_at', 'desc')
-            ->get();
+        $adjustments = [
+            [
+                'id' => 3001,
+                'bin_id' => 601,
+                'product' => 'Fulani Shampoo',
+                'previous_qty' => 45,
+                'new_qty' => 40,
+                'adjustment_amount' => -5,
+                'adjusted_by' => 'Benjamin',
+                'reason' => 'Confirmed overcount after photo verification',
+                'approved_by' => 'Oladapo FC',
+                'timestamp' => '2025-07-09 16:02:00',
+                'adjustment_type' => 'correction',
+                'status' => 'approved'
+            ],
+            [
+                'id' => 3002,
+                'bin_id' => 602,
+                'product' => 'Fulani Pomade',
+                'previous_qty' => 30,
+                'new_qty' => 33,
+                'adjustment_amount' => 3,
+                'adjusted_by' => 'Benjamin',
+                'reason' => 'DA returned extra units after delivery completion',
+                'approved_by' => 'Oladapo FC',
+                'timestamp' => '2025-07-08 10:44:00',
+                'adjustment_type' => 'return',
+                'status' => 'approved'
+            ],
+            [
+                'id' => 3003,
+                'bin_id' => 345,
+                'product' => 'Vitamin C Tablets',
+                'previous_qty' => 120,
+                'new_qty' => 115,
+                'adjustment_amount' => -5,
+                'adjusted_by' => 'Sarah Chen',
+                'reason' => 'Damaged units removed from inventory',
+                'approved_by' => 'Oladapo FC',
+                'timestamp' => '2025-07-08 09:15:00',
+                'adjustment_type' => 'write-off',
+                'status' => 'approved'
+            ]
+        ];
+
+        $summary = [
+            'total_adjustments' => count($adjustments),
+            'net_adjustment' => array_sum(array_column($adjustments, 'adjustment_amount')),
+            'approval_rate' => '100%'
+        ];
 
         return response()->json([
-            'success' => true,
-            'audits' => $audits
+            'status' => 'success',
+            'data' => $adjustments,
+            'summary' => $summary
         ]);
     }
 }
