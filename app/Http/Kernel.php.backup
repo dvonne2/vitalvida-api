@@ -1,0 +1,15 @@
+'api' => [
+    // Add this Sanctum line first
+    \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+    'throttle:api',
+    \Illuminate\Routing\Middleware\SubstituteBindings::class,
+],
+
+    protected $middlewareAliases = [
+        // ... existing middleware
+        'payout.eligible' => \App\Http\Middleware\EnsurePayoutEligible::class,
+    ];
+    protected $middlewareAliases = [
+        // ... existing middleware
+        'payout.eligible' => \App\Http\Middleware\EnsurePayoutEligible::class,
+    ];

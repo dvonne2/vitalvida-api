@@ -1,0 +1,277 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Order;
+use App\Models\Payout;
+use App\Models\PayoutActionLog;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class ComplianceController extends Controller
+{
+    /**
+     * Get all non-compliant orders with categorized failure reasons
+     */
+    public function getNonCompliantOrders()
+    {
+        $orders = Order::with(['payment', 'otp', 'photo', 'deliveryAgent', 'payouts'])
+            ->where('status', 'completed')
+            ->whereDate('created_at', '>=', now()->subDays(30))
+            ->get();
+
+        $nonCompliantOrders = [];
+
+        foreach ($orders as $order) {
+            // Skip orders that already have approved payouts
+            $hasApprovedPayout = $order->payouts()->whereIn('status', ['paid', 'pending'])->exists();
+            if ($hasApprovedPayout) {
+                continue;
+            }
+
+            $failures = [];
+            
+            // Check payment compliance
+            $hasPayment = $order->payment?->is_verified ?? false;
+            if (!$hasPayment) {
+                $failures[] = 'missing_payment';
+            }
+
+            // Check OTP compliance
+            $otpSubmitted = $order->otp?->is_submitted ?? false;
+            if (!$otpSubmitted) {
+                $failures[] = 'otp_not_submitted';
+            }
+
+            // Check photo compliance
+            $photoApproved = $order->photo?->is_approved ?? false;
+            if (!$photoApproved) {
+                $failures[] = 'photo_not_approved';
+            }
+
+            // Only include orders that have failures
+            if (!empty($failures)) {
+                $nonCompliantOrders[] = [
+                    'order_id' => $order->id,
+                    'order_reference' => $order->reference ?? 'N/A',
+                    'amount' => $order->amount,
+                    'delivery_agent' => [
+                        'id' => $order->deliveryAgent?->id,
+                        'name' => $order->deliveryAgent?->name ?? 'Unknown',
+                        'phone' => $order->deliveryAgent?->phone ?? 'N/A',
+                    ],
+                    'customer_info' => [
+                        'name' => $order->customer_name ?? 'N/A',
+                        'phone' => $order->customer_phone ?? 'N/A',
+                    ],
+                    'completion_date' => $order->completed_at ?? $order->updated_at,
+                    'days_since_completion' => $order->completed_at ? 
+                        now()->diffInDays($order->completed_at) : 
+                        now()->diffInDays($order->updated_at),
+                    'failure_categories' => $failures,
+                    'failure_details' => [
+                        'missing_payment' => !$hasPayment,
+                        'otp_not_submitted' => !$otpSubmitted,
+                        'photo_not_approved' => !$photoApproved,
+                    ],
+                    'priority' => $this->calculatePriority($failures, $order)
+                ];
+            }
+        }
+
+        // Sort by priority (high to low) and then by completion date
+        usort($nonCompliantOrders, function ($a, $b) {
+            $priorityOrder = ['high' => 3, 'medium' => 2, 'low' => 1];
+            $priorityComparison = $priorityOrder[$b['priority']] - $priorityOrder[$a['priority']];
+            
+            if ($priorityComparison === 0) {
+                return $b['days_since_completion'] - $a['days_since_completion'];
+            }
+            
+            return $priorityComparison;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $nonCompliantOrders,
+            'summary' => [
+                'total_non_compliant' => count($nonCompliantOrders),
+                'categories' => [
+                    'missing_payment' => count(array_filter($nonCompliantOrders, fn($o) => in_array('missing_payment', $o['failure_categories']))),
+                    'otp_not_submitted' => count(array_filter($nonCompliantOrders, fn($o) => in_array('otp_not_submitted', $o['failure_categories']))),
+                    'photo_not_approved' => count(array_filter($nonCompliantOrders, fn($o) => in_array('photo_not_approved', $o['failure_categories']))),
+                ],
+                'priority_breakdown' => [
+                    'high' => count(array_filter($nonCompliantOrders, fn($o) => $o['priority'] === 'high')),
+                    'medium' => count(array_filter($nonCompliantOrders, fn($o) => $o['priority'] === 'medium')),
+                    'low' => count(array_filter($nonCompliantOrders, fn($o) => $o['priority'] === 'low')),
+                ]
+            ]
+        ]);
+    }
+
+    /**
+     * Get all locked payouts with details
+     */
+    public function getLockedPayouts()
+    {
+        $lockedPayouts = Payout::with(['order.deliveryAgent', 'locker'])
+            ->where('status', 'locked')
+            ->orderBy('locked_at', 'desc')
+            ->get();
+
+        $payoutsData = $lockedPayouts->map(function ($payout) {
+            return [
+                'payout_id' => $payout->id,
+                'order_id' => $payout->order_id,
+                'order_reference' => $payout->order?->reference ?? 'N/A',
+                'amount' => $payout->amount,
+                'amount_formatted' => $payout->amount_in_naira,
+                'delivery_agent' => [
+                    'id' => $payout->order?->deliveryAgent?->id,
+                    'name' => $payout->order?->deliveryAgent?->name ?? 'Unknown',
+                    'phone' => $payout->order?->deliveryAgent?->phone ?? 'N/A',
+                ],
+                'lock_details' => [
+                    'locked_by' => [
+                        'id' => $payout->locked_by,
+                        'name' => $payout->locker?->name ?? 'Unknown',
+                        'role' => $payout->locker?->role ?? 'N/A',
+                    ],
+                    'locked_at' => $payout->locked_at,
+                    'locked_at_formatted' => $payout->locked_at?->format('M d, Y H:i:s'),
+                    'days_locked' => $payout->locked_at ? now()->diffInDays($payout->locked_at) : 0,
+                    'lock_reason' => $payout->lock_reason,
+                    'lock_type' => $payout->lock_type,
+                ],
+                'created_at' => $payout->created_at,
+                'created_at_formatted' => $payout->created_at->format('M d, Y H:i:s'),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $payoutsData,
+            'summary' => [
+                'total_locked' => $lockedPayouts->count(),
+                'total_amount_locked' => $lockedPayouts->sum('amount'),
+                'lock_types' => [
+                    'fraud' => $lockedPayouts->where('lock_type', 'fraud')->count(),
+                    'dispute' => $lockedPayouts->where('lock_type', 'dispute')->count(),
+                    'investigation' => $lockedPayouts->where('lock_type', 'investigation')->count(),
+                    'compliance' => $lockedPayouts->where('lock_type', 'compliance')->count(),
+                ],
+                'average_days_locked' => $lockedPayouts->avg(function ($payout) {
+                    return $payout->locked_at ? now()->diffInDays($payout->locked_at) : 0;
+                })
+            ]
+        ]);
+    }
+
+    /**
+     * Escalate a payout for GM review
+     */
+    public function escalatePayout($id)
+    {
+        $payout = Payout::find($id);
+
+        if (!$payout) {
+            return response()->json(['error' => 'Payout not found'], 404);
+        }
+
+        // TODO: Implement escalation logic
+        return response()->json([
+            'success' => true,
+            'message' => 'Payout escalation logic to be implemented',
+            'payout_id' => $id,
+            'escalated_by' => auth()->id(),
+            'escalated_at' => now()->toISOString()
+        ]);
+    }
+
+    /**
+     * Log a senior override action
+     */
+    public function logOverride($id)
+    {
+        $payout = Payout::find($id);
+
+        if (!$payout) {
+            return response()->json(['error' => 'Payout not found'], 404);
+        }
+
+        // TODO: Implement override logging logic
+        return response()->json([
+            'success' => true,
+            'message' => 'Override logging logic to be implemented',
+            'payout_id' => $id,
+            'override_by' => auth()->id(),
+            'override_at' => now()->toISOString()
+        ]);
+    }
+
+    /**
+     * Calculate priority based on failure types and order details
+     */
+    private function calculatePriority($failures, $order)
+    {
+        $highPriorityFailures = ['missing_payment'];
+        $mediumPriorityFailures = ['photo_not_approved'];
+        $lowPriorityFailures = ['otp_not_submitted'];
+
+        // High priority if missing payment or high value order
+        if (array_intersect($failures, $highPriorityFailures) || $order->amount > 50000) {
+            return 'high';
+        }
+
+        // Medium priority if photo not approved or medium value order
+        if (array_intersect($failures, $mediumPriorityFailures) || $order->amount > 10000) {
+            return 'medium';
+        }
+
+        return 'low';
+    }
+
+    /**
+     * Check order compliance for payout eligibility and log the check
+     */
+    public function checkOrderCompliance($orderId)
+    {
+        $order = Order::with(['payment', 'otp', 'photo', 'payouts'])->find($orderId);
+
+        if (!$order) {
+            return response()->json(['error' => 'Order not found'], 404);
+        }
+
+        // Check compliance details
+        $hasPayment = $order->payment?->is_verified ?? false;
+        $otpSubmitted = $order->otp?->is_submitted ?? false;
+        $photoApproved = $order->photo?->is_approved ?? false;
+
+        // Determine overall eligibility
+        $eligible = $hasPayment && $otpSubmitted && $photoApproved;
+
+        $responseData = [
+            'order_id' => (int) $orderId,
+            'eligible' => $eligible,
+            'details' => [
+                'has_payment' => $hasPayment,
+                'otp_submitted' => $otpSubmitted,
+                'photo_approved' => $photoApproved,
+            ]
+        ];
+
+        // Log the manual compliance check
+        $existingPayout = $order->payouts()->first();
+        
+        PayoutActionLog::create([
+            'payout_id' => $existingPayout?->id,
+            'action' => 'manual_check',
+            'performed_by' => auth()->id(),
+            'role' => auth()->user()->role ?? 'unknown',
+            'note' => json_encode($responseData)
+        ]);
+
+        return response()->json($responseData);
+    }
+}

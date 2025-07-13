@@ -2,43 +2,54 @@
 
 namespace Database\Factories;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
- */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
+    protected $model = User::class;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'name' => $this->faker->name(),
+            'email' => $this->faker->unique()->safeEmail(),
+            'phone' => $this->faker->unique()->numerify('###########'),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
+            'password' => Hash::make('password'),
+            'role' => $this->faker->randomElement(['user', 'delivery_agent']),
+            'avatar_url' => $this->faker->imageUrl(200, 200, 'people'),
+            'is_active' => true,
+            'kyc_status' => $this->faker->randomElement(['pending', 'approved']),
+            'state' => $this->faker->state(),
+            'city' => $this->faker->city(),
+            'address' => $this->faker->address(),
+            'last_login_at' => $this->faker->dateTimeBetween('-30 days'),
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
+    public function deliveryAgent()
     {
         return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+            'role' => 'delivery_agent',
+            'kyc_status' => 'approved',
+        ]);
+    }
+
+    public function admin()
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'admin',
+            'kyc_status' => 'approved',
+        ]);
+    }
+
+    public function inventoryManager()
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'inventory_manager',
+            'kyc_status' => 'approved',
         ]);
     }
 }

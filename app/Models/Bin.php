@@ -2,27 +2,29 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Bin extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'name',
         'zoho_storage_id',
         'zoho_warehouse_id',
-        'zoho_location_id',
-        'zoho_zone_id',
-        'zoho_bin_id',
         'assigned_to_da',
         'da_phone',
         'location',
-        'state',
         'status',
         'type',
         'max_capacity',
         'metadata',
+        'state',
+        'zoho_location_id',
+        'zoho_zone_id',
+        'zoho_bin_id',
     ];
 
     protected $casts = [
@@ -30,74 +32,37 @@ class Bin extends Model
         'max_capacity' => 'decimal:2',
     ];
 
-    // Relationships
-    public function items(): HasMany
-    {
-        return $this->hasMany(BinItem::class);
-    }
-
+    /**
+     * Get the delivery agent assigned to this bin
+     */
     public function deliveryAgent(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_to_da', 'id');
+        return $this->belongsTo(DeliveryAgent::class, 'assigned_to_da', 'da_code');
     }
 
-    // Helper methods
-    public function getCurrentCapacity()
+    /**
+     * Get utilization rate if we have stock data
+     */
+    public function getUtilizationRate(): float
     {
-        return $this->items()->sum('quantity');
+        // This would need to be calculated based on your inventory system
+        // For now, returning a placeholder
+        return rand(60, 95);
     }
 
-    public function getAvailableCapacity()
+    /**
+     * Scope for bins assigned to delivery agents
+     */
+    public function scopeAssigned($query)
     {
-        return $this->max_capacity - $this->getCurrentCapacity();
+        return $query->whereNotNull('assigned_to_da');
     }
 
-    public function canAccommodate($quantity)
-    {
-        return $this->getAvailableCapacity() >= $quantity;
-    }
-
-    // Scopes
+    /**
+     * Scope for active bins
+     */
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
-    }
-
-    public function scopeByType($query, $type)
-    {
-        return $query->where('type', $type);
-    }
-
-    public function scopeAssignedTo($query, $daId)
-    {
-        return $query->where('assigned_to_da', $daId);
-    }
-
-    public function scopeByState($query, $state)
-    {
-        return $query->where('state', $state);
-    }
-
-    public function scopeByZohoLocation($query, $locationId)
-    {
-        return $query->where('zoho_location_id', $locationId);
-    }
-
-    public function scopeByZohoZone($query, $zoneId)
-    {
-        return $query->where('zoho_zone_id', $zoneId);
-    }
-
-    public static function getNigerianStates(): array
-    {
-        return [
-            'FCT Abuja', 'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra',
-            'Bauchi', 'Bayelsa', 'Benue', 'Borno', 'Cross River',
-            'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Gombe',
-            'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi',
-            'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun',
-            'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto',
-            'Taraba', 'Yobe', 'Zamfara'
-        ];
     }
 }
