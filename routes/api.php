@@ -41,3 +41,20 @@ Route::get('/user', function () {
         'message' => 'User endpoint working'
     ]);
 });
+
+// Web-style routes that work in API context
+Route::get('/root', function () {
+    return response()->json(['message' => 'VitalVida API - Use /api/* endpoints']);
+});
+
+Route::get('/web-ping', function () {
+    return response()->json(['status' => 'pong']);
+});
+
+Route::get('/web-health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => date('c'),
+        'app' => 'VitalVida'
+    ]);
+});
