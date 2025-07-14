@@ -810,3 +810,22 @@ Route::get('/health', function () {
         'app' => config('app.name')
     ]);
 });
+
+// Health check endpoint for Railway
+Route::get('/health', function () {
+    try {
+        // Test database connection
+        DB::connection()->getPdo();
+        $dbStatus = 'connected';
+    } catch (\Exception $e) {
+        $dbStatus = 'disconnected';
+    }
+
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now(),
+        'database' => $dbStatus,
+        'app' => config('app.name'),
+        'env' => config('app.env')
+    ]);
+});

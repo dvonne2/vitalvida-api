@@ -22,3 +22,16 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+port_diagnostic.php
+trigger.txt
+temp_*.php
+test_*.php
+*.backup*
+array,
+boolean
+customer_name
+order_number
