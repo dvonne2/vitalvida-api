@@ -14,3 +14,13 @@ Route::get('/health-simple', function () {
         'app' => 'VitalVida API'
     ]);
 });
+
+// Debug route to check environment variables
+Route::get('/debug-env', function () {
+    return response()->json([
+        'APP_KEY' => env('APP_KEY') ? 'SET' : 'NOT SET',
+        'APP_ENV' => env('APP_ENV'),
+        'APP_DEBUG' => env('APP_DEBUG'),
+        'all_env' => array_keys($_ENV)
+    ]);
+});
