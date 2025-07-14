@@ -29,3 +29,4 @@ Route::get('/debug-env', function () {
 Route::get('/ping', function () {
     return response()->json(['status' => 'pong']);
 });
+Route::get('/ping', function () { return response()->json(['status' => 'pong']); });
