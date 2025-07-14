@@ -1,4 +1,13 @@
 <?php
-// Web routes completely disabled due to Railway compatibility issues
-// Laravel web route provider has fundamental conflicts with Railway environment  
-// ALL functionality available through /api/* endpoints which work perfectly
+
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', fn () => response()->json([
+    'message' => 'Welcome to the VitalVida API',
+    'documentation' => 'Use /api/* endpoints',
+    'endpoints' => [
+        'health' => '/api/health',
+        'ping' => '/api/web-ping',
+        'login' => '/api/login'
+    ]
+]));
