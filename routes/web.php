@@ -24,3 +24,8 @@ Route::get('/debug-env', function () {
         'all_env' => array_keys($_ENV)
     ]);
 });
+
+// Simple health check without database
+Route::get('/ping', function () {
+    return response()->json(['status' => 'pong']);
+});
