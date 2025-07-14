@@ -8,16 +8,18 @@ export APP_KEY="base64:***REMOVED***="
 export APP_ENV="production"
 export APP_DEBUG="false"
 
-# Clear ALL caches completely
+# Clear caches WITHOUT database dependency
 php artisan config:clear
 php artisan route:clear
-php artisan cache:clear
 php artisan view:clear
+
+# DON'T clear cache that requires database
+# php artisan cache:clear
 
 # Generate fresh autoloader
 composer dump-autoload
 
-# Cache only config (don't cache routes yet)
+# Cache only config
 php artisan config:cache
 
 # Start server
