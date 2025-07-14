@@ -1,25 +1,15 @@
 #!/bin/bash
 
-# Copy production env file
-cp .env.production .env
+# DON'T override Railway's injected environment variables
+# cp .env.production .env  <- REMOVE THIS LINE
 
-# Set environment variables directly as backup
+# Set only the essential variables that might be missing
 export APP_KEY="base64:***REMOVED***="
 export APP_ENV="production"
 export APP_DEBUG="false"
 
-# Clear caches WITHOUT database dependency
+# Clear and cache config (uses Railway's DB vars)
 php artisan config:clear
-php artisan route:clear
-php artisan view:clear
-
-# DON'T clear cache that requires database
-# php artisan cache:clear
-
-# Generate fresh autoloader
-composer dump-autoload
-
-# Cache only config
 php artisan config:cache
 
 # Start server
