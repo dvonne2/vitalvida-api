@@ -776,3 +776,37 @@ Route::middleware('auth:sanctum')->prefix('portal')->group(function () {
         });
     });
 });
+
+// Health check for Railway
+Route::get('/health', function () {
+    try {
+        DB::connection()->getPdo();
+        $dbStatus = 'connected';
+    } catch (\Exception $e) {
+        $dbStatus = 'disconnected';
+    }
+    
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now(),
+        'database' => $dbStatus,
+        'app' => config('app.name')
+    ]);
+});
+
+// Health check for Railway
+Route::get('/health', function () {
+    try {
+        DB::connection()->getPdo();
+        $dbStatus = 'connected';
+    } catch (\Exception $e) {
+        $dbStatus = 'disconnected';
+    }
+    
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now(),
+        'database' => $dbStatus,
+        'app' => config('app.name')
+    ]);
+});
