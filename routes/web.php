@@ -10,7 +10,7 @@ Route::get('/', function () {
 Route::get('/health-simple', function () {
     return response()->json([
         'status' => 'ok',
-        'timestamp' => now()->toISOString(),
+        'timestamp' => now()->toIso8601String(),
         'app' => 'VitalVida API'
     ]);
 });
