@@ -1,10 +1,7 @@
 #!/bin/bash
 
-# Set environment variables directly
-export APP_KEY="base64:***REMOVED***="
-export APP_ENV="production"
-export APP_DEBUG="false"
-export DB_CONNECTION="pgsql"
+# Copy production env file
+cp .env.production .env
 
 # Clear and rebuild Laravel caches
 php artisan config:clear
