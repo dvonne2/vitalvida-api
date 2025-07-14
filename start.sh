@@ -1,15 +1,17 @@
 #!/bin/bash
 
-# DON'T override Railway's injected environment variables
-# cp .env.production .env  <- REMOVE THIS LINE
-
-# Set only the essential variables that might be missing
+# Set essential variables
 export APP_KEY="base64:***REMOVED***="
-export APP_ENV="production"
+export APP_ENV="production" 
 export APP_DEBUG="false"
 
-# Clear and cache config (uses Railway's DB vars)
+# Clear all caches aggressively
 php artisan config:clear
+php artisan route:clear  
+php artisan view:clear
+php artisan cache:clear || true
+
+# Cache only config (skip route cache to avoid conflicts)
 php artisan config:cache
 
 # Start server
