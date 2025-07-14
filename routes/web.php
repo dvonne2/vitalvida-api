@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -25,8 +24,7 @@ Route::get('/debug-env', function () {
     ]);
 });
 
-// Simple health check without database
+// Single ping route (no duplicates)
 Route::get('/ping', function () {
     return response()->json(['status' => 'pong']);
 });
-Route::get('/ping', function () { return response()->json(['status' => 'pong']); });
