@@ -1,30 +1,21 @@
 <?php
+
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+// Super minimal routes to avoid any conflicts
+Route::get('/ping', function () {
+    return response()->json(['status' => 'pong']);
 });
 
-// Simple health check without database dependency
 Route::get('/health-simple', function () {
     return response()->json([
         'status' => 'ok',
-        'timestamp' => now()->toIso8601String(),
-        'app' => 'VitalVida API'
+        'timestamp' => date('c'),
+        'app' => 'VitalVida'
     ]);
 });
 
-// Debug route to check environment variables
-Route::get('/debug-env', function () {
-    return response()->json([
-        'APP_KEY' => env('APP_KEY') ? 'SET' : 'NOT SET',
-        'APP_ENV' => env('APP_ENV'),
-        'APP_DEBUG' => env('APP_DEBUG'),
-        'all_env' => array_keys($_ENV)
-    ]);
-});
-
-// Single ping route (no duplicates)
-Route::get('/ping', function () {
-    return response()->json(['status' => 'pong']);
+// Keep root route simple
+Route::get('/', function () {
+    return response()->json(['message' => 'VitalVida API']);
 });
