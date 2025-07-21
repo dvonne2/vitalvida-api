@@ -23,14 +23,37 @@ use App\Http\Controllers\DashboardController;
 
 // Health check routes (public)
 Route::get('/health', function () {
-    return response()->json([
-        'status' => 'healthy',
-        'timestamp' => now(),
-        'database' => 'connected',
-        'app' => 'VitalVida Accountant Portal',
-        'env' => config('app.env'),
-        'version' => '1.0.0'
-    ]);
+    try {
+        DB::connection()->getPdo();
+        
+        $tables = DB::select("
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        ");
+        
+        return response()->json([
+            'status' => 'healthy',
+            'timestamp' => now(),
+            'database' => 'connected',
+            'database_type' => 'PostgreSQL',
+            'tables_count' => count($tables),
+            'tables' => array_column($tables, 'table_name'),
+            'app' => 'VitalVida Accountant Portal',
+            'env' => config('app.env'),
+            'version' => '1.0.0'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'timestamp' => now(),
+            'database' => 'failed',
+            'error' => $e->getMessage(),
+            'app' => 'VitalVida Accountant Portal',
+            'env' => config('app.env'),
+            'version' => '1.0.0'
+        ]);
+    }
 });
 
 // Database connection test for PostgreSQL
