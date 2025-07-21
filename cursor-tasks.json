@@ -1,0 +1,32 @@
+{
+  "name": "Vitalvida Inventory Portal - Days 1-6 Implementation",
+  "description": "Automated implementation of foundational enforcement system",
+  "tasks": [
+    {
+      "id": "analysis_1",
+      "label": "Analyze existing database tables",
+      "type": "command",
+      "command": "php artisan tinker --execute=\"echo 'EXISTING TABLES:'; print_r(DB::select('SELECT name FROM sqlite_master WHERE type=\\'table\\' ORDER BY name')); exit;\""
+    },
+    {
+      "id": "analysis_2",
+      "label": "Check delivery_agents table structure",
+      "type": "command",
+      "command": "php artisan tinker --execute=\"try { echo 'DELIVERY_AGENTS STRUCTURE:'; print_r(DB::select('PRAGMA table_info(delivery_agents)')); } catch(Exception \\$e) { echo 'delivery_agents table does not exist'; } exit;\""
+    }
+  ],
+  "dependencies": {
+    "php": ">=8.1",
+    "laravel": ">=10.0",
+    "sqlite": ">=3.0"
+  },
+  "notes": [
+    "This automation checks for existing tables before creating new ones",
+    "Models are enhanced rather than replaced to preserve existing functionality",
+    "Uses aliases: bins=zobins, delivery_agents=DA=DE, inventory_manager=IM=IAM",
+    "All enforcement logic follows the penalty/bonus system specified",
+    "API endpoints are production-ready with proper validation",
+    "Scheduled commands handle automation (recommendations, audits)",
+    "System is designed for immediate frontend integration"
+  ]
+}

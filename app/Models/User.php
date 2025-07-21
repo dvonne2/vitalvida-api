@@ -151,4 +151,60 @@ class User extends Authenticatable
         
         return implode(', ', $parts);
     }
+
+    /**
+     * Get the user's threshold violations
+     */
+    public function thresholdViolations()
+    {
+        return $this->hasMany(ThresholdViolation::class, 'created_by');
+    }
+
+    /**
+     * Get the user's salary deductions
+     */
+    public function salaryDeductions()
+    {
+        return $this->hasMany(SalaryDeduction::class, 'user_id');
+    }
+
+    /**
+     * Get the user's bonuses
+     */
+    public function bonuses()
+    {
+        return $this->hasMany(Bonus::class, 'employee_id');
+    }
+
+    /**
+     * Get the user's payslips
+     */
+    public function payslips()
+    {
+        return $this->hasMany(Payslip::class, 'employee_id');
+    }
+
+    /**
+     * Get the user's performance metrics
+     */
+    public function performanceMetrics()
+    {
+        return $this->hasMany(PerformanceMetric::class, 'employee_id');
+    }
+
+    /**
+     * Get the user's logistics metrics
+     */
+    public function logisticsMetrics()
+    {
+        return $this->hasMany(LogisticsMetric::class, 'employee_id');
+    }
+
+    /**
+     * Get the user's special bonus requests
+     */
+    public function specialBonusRequests()
+    {
+        return $this->hasMany(SpecialBonusRequest::class, 'employee_id');
+    }
 }

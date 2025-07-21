@@ -6,6 +6,7 @@ use App\Models\Delivery;
 use App\Models\DeliveryAgent;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Carbon\Carbon;
 
 class DeliveryFactory extends Factory
 {
@@ -88,7 +89,7 @@ class DeliveryFactory extends Factory
                 'otp_verified' => true,
                 'otp_verified_at' => $deliveredAt,
                 'customer_rating' => $this->faker->numberBetween(4, 5),
-                'delivery_time_minutes' => $pickedUpAt->diffInMinutes($deliveredAt),
+                'delivery_time_minutes' => Carbon::parse($pickedUpAt)->diffInMinutes(Carbon::parse($deliveredAt)),
             ];
         });
     }

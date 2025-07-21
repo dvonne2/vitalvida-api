@@ -11,6 +11,41 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'slack' => [
+        'notifications' => [
+            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
+            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
+        ],
+    ],
+
+    // Phase 2: Payment Engine Services
+    'moniepoint' => [
+        'webhook_secret' => env('MONIEPOINT_WEBHOOK_SECRET'),
+        'api_url' => env('MONIEPOINT_API_URL', 'https://api.moniepoint.com/v1'),
+        'api_key' => env('MONIEPOINT_API_KEY'),
+        'merchant_id' => env('MONIEPOINT_MERCHANT_ID'),
+        'terminal_id' => env('MONIEPOINT_TERMINAL_ID'),
+    ],
+
+    'sms' => [
+        'provider' => env('SMS_PROVIDER', 'termii'),
+        'api_key' => env('SMS_API_KEY'),
+        'sender_id' => env('SMS_SENDER_ID', 'VitalVida'),
+        'api_url' => env('SMS_API_URL', 'https://api.termii.com/api/sms/send'),
+    ],
+
+    'otp' => [
+        'expiry_hours' => env('OTP_EXPIRY_HOURS', 24),
+        'length' => env('OTP_LENGTH', 6),
+        'max_attempts' => env('OTP_MAX_ATTEMPTS', 3),
+    ],
+
+    'payment_engine' => [
+        'mismatch_penalty' => env('PAYMENT_MISMATCH_PENALTY', 10000),
+        'verification_timeout' => env('PAYMENT_VERIFICATION_TIMEOUT', 30),
+        'max_retry_attempts' => env('MAX_PAYMENT_RETRY_ATTEMPTS', 3),
+    ],
+
     'zoho' => [
         'client_id' => env('ZOHO_CLIENT_ID'),
         'client_secret' => env('ZOHO_CLIENT_SECRET'),

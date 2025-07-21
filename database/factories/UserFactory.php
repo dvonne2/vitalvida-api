@@ -18,8 +18,8 @@ class UserFactory extends Factory
             'phone' => $this->faker->unique()->numerify('###########'),
             'email_verified_at' => now(),
             'password' => Hash::make('password'),
-            'role' => $this->faker->randomElement(['user', 'delivery_agent']),
-            'avatar_url' => $this->faker->imageUrl(200, 200, 'people'),
+            'role' => $this->faker->randomElement(['production', 'inventory', 'telesales', 'DA']),
+            'avatar' => $this->faker->imageUrl(200, 200, 'people'),
             'is_active' => true,
             'kyc_status' => $this->faker->randomElement(['pending', 'approved']),
             'state' => $this->faker->state(),
@@ -32,7 +32,7 @@ class UserFactory extends Factory
     public function deliveryAgent()
     {
         return $this->state(fn (array $attributes) => [
-            'role' => 'delivery_agent',
+            'role' => 'DA',
             'kyc_status' => 'approved',
         ]);
     }
@@ -40,7 +40,7 @@ class UserFactory extends Factory
     public function admin()
     {
         return $this->state(fn (array $attributes) => [
-            'role' => 'admin',
+            'role' => 'superadmin',
             'kyc_status' => 'approved',
         ]);
     }
@@ -48,7 +48,7 @@ class UserFactory extends Factory
     public function inventoryManager()
     {
         return $this->state(fn (array $attributes) => [
-            'role' => 'inventory_manager',
+            'role' => 'inventory',
             'kyc_status' => 'approved',
         ]);
     }

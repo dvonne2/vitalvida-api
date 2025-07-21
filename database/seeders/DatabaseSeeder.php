@@ -59,20 +59,27 @@ class DatabaseSeeder extends Seeder
             Delivery::factory()
                 ->count(rand(15, 40))
                 ->completed()
-                ->create(['delivery_agent_id' => $agent->id]);
+                ->create([
+                    'delivery_agent_id' => $agent->id,
+                    'assigned_by' => $admin->id
+                ]);
 
             // Failed deliveries (15%)
             Delivery::factory()
                 ->count(rand(2, 8))
                 ->failed()
-                ->create(['delivery_agent_id' => $agent->id]);
+                ->create([
+                    'delivery_agent_id' => $agent->id,
+                    'assigned_by' => $admin->id
+                ]);
 
             // Pending deliveries (15%)
             Delivery::factory()
                 ->count(rand(1, 5))
                 ->create([
                     'delivery_agent_id' => $agent->id,
-                    'status' => 'assigned'
+                    'status' => 'assigned',
+                    'assigned_by' => $admin->id
                 ]);
         }
 

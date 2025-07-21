@@ -65,4 +65,19 @@ class Bin extends Model
     {
         return $query->where('status', 'active');
     }
+
+    // Add available sets and isCriticallyLow logic
+    public function getAvailableSetsAttribute() 
+    {
+        return min(
+            $this->shampoo_count ?? 0, 
+            $this->pomade_count ?? 0, 
+            $this->conditioner_count ?? 0
+        );
+    }
+
+    public function isCriticallyLow() 
+    {
+        return $this->available_sets < 3;
+    }
 }
