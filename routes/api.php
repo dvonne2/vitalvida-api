@@ -96,6 +96,15 @@ Route::get('/test-simple', function () {
     ]);
 });
 
+// Deployment verification
+Route::get("/deployment-test", function () {
+    return response()->json([
+        "status" => "deployed", 
+        "timestamp" => now(),
+        "cache_cleared" => true
+    ]);
+});
+
 // Public payroll endpoints for assessment
 Route::get('/payroll/history', function () {
     return response()->json(['message' => 'Payroll history endpoint exists']);
