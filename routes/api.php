@@ -64,6 +64,15 @@ Route::get('/test-db-laravel', function () {
     }
 });
 
+// Simple test route to verify new routes are being registered
+Route::get('/test-simple', function () {
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Simple test route working',
+        'timestamp' => now()
+    ]);
+});
+
 // Public payroll endpoints for assessment
 Route::get('/payroll/history', function () {
     return response()->json(['message' => 'Payroll history endpoint exists']);

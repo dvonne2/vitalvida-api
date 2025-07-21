@@ -7,6 +7,7 @@ export APP_DEBUG="false"
 # Clear and cache config
 php artisan config:clear
 php artisan config:cache
+php artisan route:clear
 
 # Run database migrations
 echo "Running database migrations..."
