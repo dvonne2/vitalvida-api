@@ -1,8 +1,10 @@
-[variables]
-NIXPACKS_NO_CACHE = "1"
+providers = ["php"]
 
 [phases.build]
-cmds = ["composer install --no-dev --optimize-autoloader"]
+cmds = ["composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-exif --ignore-platform-req=php-64bit"]
 
-[phases.start]
-cmd = "php -S 0.0.0.0:$PORT -t public"
+[phases.install]
+cmds = ["php artisan config:cache", "php artisan route:cache"]
+
+[variables]
+PHP_VERSION = "8.2"
