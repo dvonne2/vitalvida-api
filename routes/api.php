@@ -33,6 +33,37 @@ Route::get('/health', function () {
     ]);
 });
 
+// Database connection test for PostgreSQL
+Route::get('/test-db-laravel', function () {
+    try {
+        DB::connection()->getPdo();
+        
+        $tables = DB::select("
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        ");
+        
+        return response()->json([
+            'status' => 'success',
+            'database' => 'connected',
+            'database_type' => 'PostgreSQL',
+            'tables_count' => count($tables),
+            'tables' => array_column($tables, 'table_name'),
+            'timestamp' => now(),
+            'message' => 'PostgreSQL connection successful'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'database' => 'failed',
+            'error' => $e->getMessage(),
+            'timestamp' => now(),
+            'message' => 'Database connection failed'
+        ]);
+    }
+});
+
 // Public payroll endpoints for assessment
 Route::get('/payroll/history', function () {
     return response()->json(['message' => 'Payroll history endpoint exists']);
