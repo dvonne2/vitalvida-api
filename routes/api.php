@@ -658,3 +658,12 @@ Route::fallback(function () {
         ]
     ], 404);
 });
+
+// FORCED REBUILD ROUTE 1753112001
+Route::get('/rebuild-test', function () {
+    return response()->json([
+        'message' => 'REBUILD SUCCESS',
+        'timestamp' => now(),
+        'build_id' => '1753112001'
+    ]);
+});
