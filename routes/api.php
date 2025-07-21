@@ -667,3 +667,22 @@ Route::get('/rebuild-test', function () {
         'build_id' => '1753112001'
     ]);
 });
+
+// FORCED REBUILD ROUTE 1721585604
+Route::get('/rebuild-test', function () {
+    return response()->json([
+        'message' => 'REBUILD SUCCESS',
+        'timestamp' => now(),
+        'build_id' => '1721585604'
+    ]);
+});
+
+// NEW TIMESTAMPED ROUTE - FORCE RAILWAY UPDATE
+Route::get('/force-update-' . time(), function () {
+    return response()->json([
+        'message' => 'FORCE UPDATE SUCCESS',
+        'timestamp' => now(),
+        'build_id' => time(),
+        'status' => 'new_code_deployed'
+    ]);
+});

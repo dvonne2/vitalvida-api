@@ -5,11 +5,23 @@ echo "=== Starting VitalVida API ==="
 export APP_ENV="production"
 export APP_DEBUG="false"
 
-# Clear caches safely
+# AGGRESSIVE CACHE CLEARING
+echo "=== Clearing all caches ==="
+rm -rf bootstrap/cache/*.php || true
+rm -rf storage/framework/cache/data/* || true
+rm -rf storage/framework/sessions/* || true
+rm -rf storage/framework/views/* || true
+
+# Clear all Laravel caches
 php artisan config:clear || true
 php artisan route:clear || true
+php artisan cache:clear || true
+php artisan view:clear || true
+php artisan optimize:clear || true
 
-# Cache config only (skip problematic caches)
+# Force route registration
+echo "=== Forcing route registration ==="
+php artisan route:cache || true
 php artisan config:cache || true
 
 echo "=== Server starting on port $PORT ==="
